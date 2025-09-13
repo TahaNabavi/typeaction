@@ -56,33 +56,60 @@ yarn add @tahanabavi/typeaction
 
 ## Quick start
 
+* Server action
+```tsx
+"use server";
+export type RequestData = { id: number };
+export type ResponseData = { message: string };
+
+export async function fetchMessage(input: RequestData): Promise<ResponseData> {
+  await new Promise((resolve) => setTimeout(resolve, 500)); // simulate server delay
+
+  if (input.id < 0) throw new Error("Invalid ID");
+
+  return { message: `Hello ${input.id}` };
+}
+```
+
+* Hook
 ```tsx
 "use client";
 
 import { createAction } from "@tahanabavi/typeaction";
+import { fetchMessage, RequestData, ResponseData } from "./action";
 
-// server action
-"use server";
-export const action = createAction(
-  async function getMessage(data: { name: string }) {
-    return { message: `Hello, ${data.name}!` };
-  },
-  { key: "greeting" }
-);
+// Wrap the server action with createAction
+export const useFetchMessage = createAction<RequestData, ResponseData>(fetchMessage);
+```
 
-// use inside component
-function Example() {
-  const { isPending, mutate, data } = action.useAction();
+* Usage
+```tsx
+"use client";
+
+import { useFetchMessage } from "./hook";
+
+export default function App() {
+  const { mutate, data, error, isPending, reset, abort } = useFetchMessage({
+    key: "message",
+    optimisticUpdate: (prev: any, input: any) => ({
+      message: `Optimistic ${input.id}`,
+    }),
+  });
 
   return (
     <div>
-      <button onClick={() => mutate({ name: "Taha" })} disabled={isPending}>
-        {isPending ? "Loading..." : "Say hi"}
-      </button>
-      {data && <p>{data.message}</p>}
+      <button onClick={() => mutate({ id: 1 })}>Fetch id=1</button>
+      <button onClick={() => mutate({ id: -1 })}>Fetch Invalid</button>
+      <button onClick={abort}>Abort</button>
+      <button onClick={reset}>Reset</button>
+
+      <div>Status: {isPending ? "Loading..." : "Idle"}</div>
+      <div>Data: {data?.message ?? "No data"}</div>
+      <div>Error: {error ? (error as Error).message : "No error"}</div>
     </div>
   );
 }
+
 ```
 
 ---
